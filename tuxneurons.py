@@ -135,12 +135,14 @@ class bNeuron:
         self.connections[neuron.iden] = weight
 
     def input(self, value, registry, cglobals):
+        self.storage.append(value)
+        
         """Accepts an input value (e.g., from another neuron)."""
-        if len(self.storage) == self.limit:
+        if len(self.storage) >= self.limit:
             value = 0
-            for i in range(len(storage)):
-                value += storage[i]
-            value += bias
+            for i in range(len(self.storage)):
+                value += self.storage[i]
+            value += self.bias
             self.storage = []
             for i in range(len(self.connections)):
                 keys = list(self.connections.keys())
@@ -148,13 +150,8 @@ class bNeuron:
 
                 outN = getByID(keys[i], registry)
                 cglobals[outN].input(float(values[i])*value, registry, cglobals)
-        else:
-            self.storage += value
             
-
-    def output(self, value):
-        print(value)
-        
+            
 
     def __repr__(self):
         return f"Neuron(ID={self.iden}, Bias={self.bias})"
@@ -185,11 +182,12 @@ class eNeuron:
 
         self.connections = {}
 
+        self.result = 0
+
     def input(self, value, registry, cglobals):
         """Accepts an input value (e.g., from another neuron)."""
         value += self.bias
-        print(value)
-            
+        self.result = value
 
     def __repr__(self):
         return f"Neuron(ID={self.iden}, Bias={self.bias})"
