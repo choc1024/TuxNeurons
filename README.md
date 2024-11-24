@@ -1,5 +1,5 @@
 # TuxNeurons
-An experimental, low level alternative to tensorflow
+An experimental, low level alternative to tensorflow. Note: Even though the image features Tux, the linux mascot, the library itself works cross-platform, as long as Python is available.
 ![TuxNeurons Image](media/image.webp)
 
 # What
