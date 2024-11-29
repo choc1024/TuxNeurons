@@ -13,3 +13,5 @@ Just download tuxneurons.py into your project folder and in the same directory d
 
 # Contributing
 Please Star this project! If you have any ideas, bug fixes, etc please open an Issue, Pull Request or Discussion!
+
+If you want to donate, contact me (anonymous7546@duck.com), as... well, this entire project is being developed and maintained only by me and aparently no one is coming to help.
