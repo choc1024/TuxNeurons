@@ -10,3 +10,6 @@ I made this so I can learn about neural networks and I published this so everyon
 
 # Usage
 Just download tuxneurons.py into your project folder and in the same directory do `import tuxneurons` or `from tuxneurons import *`. More usage available in the Wiki.
+
+# Contributing
+Please Star this project! If you have any ideas, bug fixes, etc please open an Issue, Pull Request or Discussion!
