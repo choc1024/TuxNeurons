@@ -15,3 +15,6 @@ Just download tuxneurons.py into your project folder and in the same directory d
 Please Star this project! If you have any ideas, bug fixes, etc please open an Issue, Pull Request or Discussion!
 
 If you want to donate, contact me (anonymous7546@duck.com), as... well, this entire project is being developed and maintained only by me and aparently no one is coming to help.
+
+# Note on performance
+TuxNeurons is focused on making neural network creation and training more intuitive and easy to understand rather than performance. Each neuron is a class, and training has not been fully implemented (WIP) yet, so not for commertial nor production use, although you can.
