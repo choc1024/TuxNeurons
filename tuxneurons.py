@@ -1,6 +1,7 @@
 import random
 import string
 import math
+import matplotlib.pyplot as plt
 
 ####################################################################################################
 ########## SECTION 1 ###############################################################################
@@ -56,25 +57,31 @@ def network(registry, cglobals, sn, hl, hn, en):
     # Creates the network
     tn = sn + (hl*hn) + en
     for i in range(sn):
-        register(f"s{i}", registry, cglobals, "s", 0)
+        register(f"s{i}", registry, cglobals, "s")
     for i in range(hl):
         for j in range(hn):
-            register(f"n{i}_{j}", registry, cglobals, "n", 0)
+            register(f"n{i}_{j}", registry, cglobals, "n")
     for i in range(en):
-        register(f"e{i}", registry, cglobals, "e", 0)
+        register(f"e{i}", registry, cglobals, "e")
     
     # Binds the neurons
+    ## Bind neurons from start layer to the first hidden layer
     for i in range(sn):
         for j in range(hn):
-            cglobals[f"s{i}"].bind(cglobals[f"n0{j}"], 1)
-    for i in range(hl-1):
-        for j in range(hn):
-            for k in range(en):
-                cglobals[f"n{i}_{j}"].bind(cglobals[f"n{i+1}_{k}"], 1)
-    # Bind the neurons from the second to last layer to the end neurons
-    for i in range(hn):
-        for j in range(en):
-            cglobals[f"n{hl-1}_{i}"].bind(cglobals[f"e{j}"], 1)
+            cglobals[f"s{i}"].bind(cglobals[f"n0_{j}"], 1)
+    
+    ## Binds hidden layer neurons
+    ### For each layer
+    for layer in range(hl-1):
+        ### For each neuron in that layer
+        for neuron in range(hn):
+            ### For each connection that neuron needs to have
+            for connection in range(hn):
+                cglobals[f"n{layer}_{neuron}"].bind(cglobals[f"n{layer+1}_{connection}"], 1)
+    # Bind the neurons from the last hidden layer to the end layer
+    for neuron in range(hn):
+        for end in range(en):
+            cglobals[f"n{hl-1}_{neuron}"].bind(cglobals[f"e{end}"], 1)
         
 
 
@@ -113,7 +120,8 @@ Base for the entire library. It makes a neuron.
 class Neuron:
     def __init__(self, iden, bias=None):
         # Set a random bias if none is provided
-        self.bias = bias if bias is not None else random.uniform(-5, 5)
+        self.bias = 0
+        #self.bias = bias if bias is not None else random.uniform(-5, 5)
         # Generate a random 10-character alphanumeric ID
         self.iden = iden
         # Placeholder for inputs
@@ -139,6 +147,7 @@ class Neuron:
                 values = list(self.connections.values())
                 outN = getByID(keys[i], registry)
                 cglobals[outN].input(float(values[i])*value, registry, cglobals)
+            self.inputs = []
 
     def __repr__(self):
         return f"Neuron(ID={self.iden}, Bias={self.bias})"
@@ -176,9 +185,8 @@ class sNeuron:
         for i in range(len(self.connections)):
             keys = list(self.connections.keys())
             values = list(self.connections.values())
-
             outN = getByID(keys[i], registry)
-            cglobals[outN].input(float(values[i])*value, registry, cglobals)
+            cglobals[outN].input(float(values[i])*float(value), registry, cglobals)
 
 
     def __repr__(self):
@@ -270,8 +278,10 @@ class eNeuron:
         """Accepts an input value (e.g., from another neuron)."""
         self.inputs.append(value)
         if len(self.inputs) == self.parents:
-            value = sig(sum(self.inputs) + self.bias)
+            #value = sig(sum(self.inputs) + self.bias)
+            value = sum(self.inputs) + self.bias
             self.result = value
+            self.inputs = []
 
     def __repr__(self):
         return f"Neuron(ID={self.iden}, Bias={self.bias})"
@@ -331,7 +341,6 @@ def sig(x):
     float: The output of the function.
     """
     return 1/(1 + (math.e**(-x)))
-
 
 
 
@@ -456,195 +465,109 @@ def av(l: list):
     """
     return sum(l) / len(l)
     
+def mse(targets: list, outputs: list):
+    err = []
+    for output in range(len(outputs)):
+        err.append((targets[output] - outputs[output])**2)
+    error = av(err)
+    return error
 
-
-
-
-def error(target: list, actual: list) -> float:
-    """
-    Calculate the Mean Squared Error (MSE) between target and actual outputs.
-
-    :param target: List of lists containing the correct outputs (ground truth).
-    :param actual: List of lists containing the predicted outputs.
-    :return: Mean Squared Error (float).
-    """
-    squared_errors = []
-
-    for i in range(len(target)):
-        for j in range(len(target[i])):
-            squared_errors.append((target[i][j] - actual[i][j]) ** 2)
-
-    return av(squared_errors)
-
-
-
-
-# Function to calculate the number of parameters for any given network
-def n_params(nInput, hidden, nhidden, nOutput):
-    params = (nInput * nhidden + nhidden * nhidden * (hidden - 1) + nhidden * nOutput) + (nhidden * hidden + nOutput)
-    return params
-
-
-
-
-
-# Training Functions
-
-
-
-
-
-def feed_and_get_error(cglobals, registry, inputs, outputs, dataset):
+def get_error(cglobals, registry, dataset, inputs, outputs):
     err_list = []
-    
-    for i in range(len(dataset)):
-        
-        # Input the dataset into the input layer
-        for j in range(len(inputs)):
-            cglobals[inputs[j]].input(dataset[i][0][j], registry, cglobals)
-        # Output & Error
-        for j in range(len(outputs)):
-            cglobals[outputs[j]].input(dataset[i][1][j], registry, cglobals)
-        
-        # Calculate error
-        outputs = []
-        for j in range(len(outputs)):
-            outputs.append(cglobals[outputs[j]].result)
-        err_list.append(error(dataset[i][1]), outputs)
-    err = av(err_list)
-    return err
+    for data in range(len(dataset)):
+        results = []
+        for sneuron in range(inputs):
+            cglobals[f"s{sneuron}"].input(dataset[data][0][sneuron], registry, cglobals)
+        for eneuron in range(outputs):
+            results.append(cglobals[f"e{eneuron}"].result)
+        for result in range(len(results)):
+            err_list.append((dataset[data][1][result] - results[result])**2)
+    return av(err_list)
 
-
-
-
-def basicTraining(cglobals, registry: dict, inputs: int, outputs: int, 
-                  rate: float, dataset: list, hlayers: int, hneurons: int):
-    # Step 1: Feed each set of inputs from the dataset into each input neuron
-    # and calculate error
-    
-    err = feed_and_get_error(cglobals, registry, inputs, outputs, dataset)
-    
-    STARTB = []
-    
-    # Step 2: change every weight in the input layer and calculate the new weights
-    for i in range(inputs): # For each input neuron
-        INPUTB = {}
-        
-        # List of IDs for the connections of the neuron
-        keyc = list(cglobals[f's{i}'].connections.keys())
-        
-        # List of weights for the connections of the neuron 
-        valuec = list(cglobals[f's{i}'].connections.values()) 
-        
-        for j in range(len(cglobals[f's{i}'].connections)): # For each connection
-            cglobals[f"s{i}"].w(
-                                valuec[j] + 0.01,
-                                keyc[j]
-                                )
-            
-            # New Error
-            nerr = feed_and_get_error(cglobals, registry, inputs, outputs, dataset)
-            derr = nerr - err
-            
-            derr = derr / 0.01
-            
-            neww = valuec[j] - (rate * derr)
-            
-            INPUTB[keyc[j]] = neww
-            
-            # Reset the weight
-            cglobals[f"s{i}"].w(
-                                valuec[j],
-                                keyc[j]
-                                )            
-            
-        STARTB.append(INPUTB)
-    
-    HIDDENB = []
-    
-    # Step 3: change every weight in the hidden layer and calculate the new weights
-    # + change the bias
-    for i in range(hlayers): # For each hidden layer
-        LAYERB = []
-        for j in range(hneurons): # For each hidden neuron
-            NEURONB = [0, {}]
-            cglobals[f'n{i}_{j}'].b(cglobals[f'n{i}_{j}'].bias + 0.01)
-            nerr = feed_and_get_error(cglobals, registry, inputs, outputs, dataset)
-            derr = nerr - err
-            derr = derr / 0.01
-            newb = (cglobals[f'n{i}_{j}'].bias - 0.01) - (rate * derr)
-            NEURONB[0] = newb
-            
-            for k in range(len(cglobals[f'n{i}_{j}'].connections)): # For each connection
-                keyc = list(cglobals[f'n{i}_{j}'].connections.keys())
+def simulated_annealing(cglobals, registry, dataset, inputs, outputs, hl, hn,
+                        temp=2.0, decay=0.995, tlimit=0.0001, rate=0.1):
+    while temp > tlimit:
+        # Adjust the input layer weights
+        for sneuron in range(inputs):
+            for connection in range(hn):
+                error = get_error(cglobals, registry, dataset, inputs, outputs)
+                original_weight = cglobals[f"s{sneuron}"].connections[cglobals[f"n0_{connection}"].iden]
+                change = random.uniform(-rate, rate)
+                cglobals[f"s{sneuron}"].connections[cglobals[f"n0_{connection}"].iden] += change
+                new_error = get_error(cglobals, registry, dataset, inputs, outputs)
                 
-                valuec = list(cglobals[f'n{i}_{j}'].connections.values())
-                
-                cglobals[f'n{i}_{j}'].w(
-                    valuec[k] + 0.01,
-                    keyc[k]
-                )
-                
-                nerr = feed_and_get_error(cglobals, registry, inputs, outputs, dataset)
-                derr = nerr - err
-                derr = derr / 0.01
-                neww = valuec[k] - (rate * derr)
-                NEURONB[1][keyc[k]] = neww
-                
-                cglobals[f'n{i}_{j}'].w(
-                    valuec[k],
-                    keyc[k]
-                )
-            
-            LAYERB.append(NEURONB)
-        HIDDENB.append(LAYERB)
+                # If error increases
+                if new_error > error:
+                    accept = math.e**((error - new_error)/temp)
+                    # There is a chance that the weight will be reset
+                    # or kept to escape local maximum
+                    if random.random() > accept:
+                        cglobals[f"s{sneuron}"].connections[cglobals[f"n0_{connection}"].iden] = original_weight-change
+                        test_error = get_error(cglobals, registry, dataset, inputs, outputs)
+                        if test_error > new_error:
+                            cglobals[f"s{sneuron}"].connections[cglobals[f"n0_{connection}"].iden] = original_weight
+                # If error decreases, the weight is kept. But as it is already set,
+                # there is no need to do anything.
+        # Adjust the hidden layer weights and biases
+        for layer in range(hl):
+            for neuron in range(hn):
+                error = get_error(cglobals, registry, dataset, inputs, outputs)
+                original_bias = cglobals[f"n{layer}_{neuron}"].bias
+                change = random.uniform(-rate, rate)
+                cglobals[f"n{layer}_{neuron}"].bias += change
+                new_error = get_error(cglobals, registry, dataset, inputs, outputs)
 
-    ENDB = []
-    
-    # Step 4: change every bias in the last layer
-    for i in range(outputs):
-        cglobals[f'e{i}'].b(cglobals[f'e{i}'].bias + 0.01)
-        nerr = feed_and_get_error(cglobals, registry, inputs, outputs, dataset)
-        derr = nerr - err
-        derr = derr / 0.01
-        newb = (cglobals[f'e{i}'].bias - 0.01) - (rate * derr)
-        ENDB.append(newb)
-        cglobals[f'e{i}'].b(cglobals[f'e{i}'].bias)
-        
-    # Step 5: apply the changes
-    
-    
-    # Apply the changes to the input layer weights
-    for i in range(inputs):
-        for j in range(len(cglobals[f's{i}'].connections)):
-            keyc = list(cglobals[f's{i}'].connections.keys())
-            valuec = list(cglobals[f's{i}'].connections.values())
-            keyb = list(STARTB.[i].keys())
-            cglobals[f's{i}'].w(
-                keyb[j],
-                valuec[j]
-            )
-    for layer in range(hlayers): # I almost forgot that `i` is not the only option
-        
-        
-    
+                # If error increases
+                if new_error > error:
+                    accept = math.e**((error - new_error)/temp)
+                    # There is a chance that the weight will be reset
+                    # or kept to escape local maximum
+                    if random.random() > accept:
+                        cglobals[f"n{layer}_{neuron}"].bias = original_bias - change
+                        test_error = get_error(cglobals, registry, dataset, inputs, outputs)
+                        if test_error > new_error:
+                            cglobals[f"n{layer}_{neuron}"].bias = original_bias
 
-def train(cglobals, registry: dict, inputs: list, outputs: list, 
-          rate: float = 0.001, dataset: list):
-    # Split the dataset into batches of 20 if it is larger than 40
-    if len(dataset) > 40:
-        number_of_batches = len(dataset) // 20
-        if len(dataset) > (number_of_batches * 20):
-            number_of_batches += 1    
-        batches = []
-        for i in range(number_of_batches):
-            batch = []
-            for j in range(20):
-                if len(dataset) == 0:
-                    break
-                tmp = random.randint(0, len(dataset) - 1)
-                batch.append(dataset[tmp])
-                dataset.pop(tmp)
-            batches.append(batch)
-        dataset = batches
+                # Adjust weights
+                for connection in range(len(cglobals[f"n{layer}_{neuron}"].connections)):
+                    error = get_error(cglobals, registry, dataset, inputs, outputs)
+                    keys = list(cglobals[f"n{layer}_{neuron}"].connections.keys())
+                    values = list(cglobals[f"n{layer}_{neuron}"].connections.values())
+                    original_weight = values[connection]
+                    change = random.uniform(-rate, rate)
+                    cglobals[f"n{layer}_{neuron}"].connections[keys[connection]] += change
+                    new_error = get_error(cglobals, registry, dataset, inputs, outputs)
 
+                    # If error increases
+                    if new_error > error:
+                        accept = math.e**((error - new_error)/temp)
+                        # There is a chance that the weight will be reset
+                        # or kept to escape local maximum
+                        if random.random() > accept:
+                            cglobals[f"n{layer}_{neuron}"].connections[keys[connection]] = original_weight - change
+                            test_error = get_error(cglobals, registry, dataset, inputs, outputs)
+                            if test_error > new_error:
+                                cglobals[f"n{layer}_{neuron}"].connections[keys[connection]] = original_weight
+        # Adjust the output layer biases
+        for eneuron in range(outputs):
+            error = get_error(cglobals, registry, dataset, inputs, outputs)
+            original_bias = cglobals[f"e{eneuron}"].bias
+            change = random.uniform(-rate, rate)
+            cglobals[f"e{eneuron}"].bias += change
+            new_error = get_error(cglobals, registry, dataset, inputs, outputs)
+
+            # If error increases
+            if new_error > error:
+                accept = math.e**((error - new_error)/temp)
+                # There is a chance that the weight will be reset
+                # or kept to escape local maximum
+                if random.random() > accept:
+                    cglobals[f"e{eneuron}"].bias = original_bias - change
+                    test_error = get_error(cglobals, registry, dataset, inputs, outputs)
+                    if test_error > new_error:
+                        cglobals[f"e{eneuron}"].bias = original_bias
+        print(f"Temperature: {temp}")
+        temp *= decay
+        
+        print(get_error(cglobals, registry, dataset, inputs, outputs))
+        rate *= 0.999
