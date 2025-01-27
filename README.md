@@ -1,4 +1,4 @@
-# ⚠️ WARNING: This Repository Is Dangerous! ⚠️
+# ⚠️ WARNING: This Repository Is Unmaintained! ⚠️
 TuxNeurons is now deprecated and I moved to another AI project called Instant AI Cooker, which is lightweight, small, and easy to use. This repository will not be maintained anymore. You are free to fork it and continue it, however.
 
 # TuxNeurons
